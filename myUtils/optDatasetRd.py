@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 from torch.utils.data import Dataset
-from optModelRd import optModelRd
+from optModelRd import optModel
 
 class optDatasetRd(Dataset):
     def __init__(self, x, r, c, Q, alpha, num_items, num_data):
@@ -24,7 +24,7 @@ class optDatasetRd(Dataset):
     def _solve_optimization_problems(self):
         n_data = self.r.shape[0]
         for i in range(n_data):
-            model = optModelRd(
+            model = optModel(
                 num_items=self.num_items,
                 num_data=self.num_data,
                 alpha=self.alpha,
@@ -79,3 +79,5 @@ class optDatasetRd(Dataset):
             torch.FloatTensor(self.opt_solutions_closed[idx]),
             torch.FloatTensor([self.opt_objective_values_closed[idx]])
         )
+        
+

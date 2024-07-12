@@ -1,88 +1,58 @@
 import numpy as np
 import cvxpy as cp
 
-class optModel_2:
-    """
-    Abstract optimization model based on cvxpy
-    """
 
-    def __init__(self, num_items, num_data, alpha, Q):
-        self.n = num_items
-        self.m = num_data
+class optModel:
+    def __init__(self,x,r,c,Q,alpha):
         self.alpha = alpha
         self.Q = Q
-
-    def __repr__(self):
-        return "OptModel " + self.__class__.__name__
-
-    @property
-    def num_items(self):
-        """
-        Number of items in the optimization problem
-        """
-        return self.n
-
-
-class optModelRd(optModel_2):
-    """
-    Concrete implementation of OptModel for solving specific optimization problems
-    """
-
-    def __init__(self, num_items, num_data, alpha, Q, r, c):
-        super().__init__(num_items, num_data, alpha, Q)
         self.r = r
         self.c = c
-        self.d = cp.Variable((self.m, self.n))
-        self.setObj(r, c)
-
-    def solveP(self):
-        """
-        Solve the optimization problem using cvxpy
-        """
-        return self.solve()
-
-    def solveC(self):
-        """
-        Solve the optimization problem using a closed-form solution
-        """
-        if self.alpha == 1:
-            return print("Work in progress")
-        else:
-            S = np.sum(self.c ** (1 - 1 / self.alpha) * self.r ** (-1 + 1 / self.alpha))
-            d_closed_form = (self.c ** (-1 / self.alpha) * self.r ** (-1 + 1 / self.alpha) * self.Q) / S
-            optimal_value_closed_form = np.sum((self.r * d_closed_form) ** (1 - self.alpha)) / (1 - self.alpha)
-        
-        return d_closed_form, optimal_value_closed_form
-
+        self.x = x
+        self.num_data, self.num_items, self.num_features = x.shape
     def setObj(self, r, c):
-        """
-        A method to set the objective function and constraints
-
-        Args:
-            r, c: Problem parameters
-        """
         if self.alpha == 1:
             self.objective = cp.sum(cp.log(cp.multiply(r, self.d)))
-        else:
-            self.objective = cp.sum(cp.power(cp.multiply(r, self.d), 1 - self.alpha)) / (1 - self.alpha)
-
-        # Updating constraints as per the problem definition
+        
+        self.objective = cp.sum(cp.power(cp.multiply(r, self.d), 1 - self.alpha)) / (1 - self.alpha)
         self.constraints = [
-            self.d >= 0,  # 0 ≤ d_i
-            cp.sum(cp.multiply(c, self.d)) <= self.Q  # ∑ c_i d_i ≤ Q
+            self.d >= 0,
+            cp.sum(cp.multiply(c, self.d)) <= self.Q
         ]
-
         self.problem = cp.Problem(cp.Maximize(self.objective), self.constraints)
 
-    def solve(self):
+
+    def solve(self,closed=False):
         """
         A method to solve the optimization problem
 
         Returns:
             tuple: optimal solution (list) and objective value (float)
         """
-        self.problem.solve()
-        d_opt = self.d.value
-        optimal_value = self.problem.value
+        opt_sol = []
+        opt_val = []
+        if closed:
+            return self.solveC()
 
-        return d_opt, optimal_value
+        for i in range(self.num_data):
+            self.d = cp.Variable(self.num_items)
+            self.setObj(self.r[i], self.c[i])
+            self.problem.solve()
+            opt_sol.append(self.d.value.reshape(1,self.num_items))
+            opt_val.append(self.problem.value)
+
+        opt_sol = np.concatenate(opt_sol)
+
+
+        return opt_sol, opt_val 
+    
+    def solveC(self):
+        if self.alpha == 1:
+            return print("Work in progress")
+
+        S = np.sum(self.c ** (1 - 1 / self.alpha) * self.r ** (-1 + 1 / self.alpha))
+        opt_sol_c = (self.c ** (-1 / self.alpha) * self.r ** (-1 + 1 / self.alpha) * self.Q) / S
+        opt_val_c = np.sum((self.r * opt_sol_c) ** (1 - self.alpha)) / (1 - self.alpha)
+    
+        return opt_sol_c, opt_val_c
+    
